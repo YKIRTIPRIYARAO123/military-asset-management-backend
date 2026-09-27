@@ -1,0 +1,118 @@
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+enum Role {
+  ADMIN
+  BASE_COMMANDER
+  LOGISTICS_OFFICER
+}
+
+enum EquipmentType {
+  WEAPONS
+  VEHICLES
+  AMMUNITION
+}
+
+model Base {
+  id               String       @id @default(uuid())
+  name             String       @unique
+  location         String
+  users            User[]
+  inventories      Inventory[]
+  purchases        Purchase[]
+  transfersOrigin  Transfer[]   @relation("OriginBase")
+  transfersDest    Transfer[]   @relation("DestinationBase")
+  assignments      Assignment[]
+  createdAt        DateTime     @default(now())
+}
+
+model User {
+  id           String        @id @default(uuid())
+  username     String        @unique
+  passwordHash String
+  fullName     String
+  role         Role
+  baseId       String?
+  base         Base?         @relation(fields: [baseId], references: [id])
+  auditLogs    AuditLog[]
+  createdAt    DateTime      @default(now())
+}
+
+model AssetType {
+  id          String        @id @default(uuid())
+  name        String        @unique
+  category    EquipmentType
+  inventories Inventory[]
+  purchases   Purchase[]
+  transfers   Transfer[]
+  assignments Assignment[]
+}
+
+model Inventory {
+  id          String    @id @default(uuid())
+  baseId      String
+  assetTypeId String
+  quantity    Int       @default(0)
+  base        Base      @relation(fields: [baseId], references: [id])
+  assetType   AssetType @relation(fields: [assetTypeId], references: [id])
+
+  @@unique([baseId, assetTypeId])
+}
+
+model Purchase {
+  id          String    @id @default(uuid())
+  baseId      String
+  assetTypeId String
+  quantity    Int
+  unitCost    Float     @default(0.0)
+  vendor      String
+  timestamp   DateTime  @default(now())
+  base        Base      @relation(fields: [baseId], references: [id])
+  assetType   AssetType @relation(fields: [assetTypeId], references: [id])
+}
+
+model Transfer {
+  id                String    @id @default(uuid())
+  originBaseId      String
+  destinationBaseId String
+  assetTypeId       String
+  quantity          Int
+  reason            String?
+  timestamp         DateTime  @default(now())
+  originBase        Base      @relation("OriginBase", fields: [originBaseId], references: [id])
+  destinationBase   Base      @relation("DestinationBase", fields: [destinationBaseId], references: [id])
+  assetType         AssetType @relation(fields: [assetTypeId], references: [id])
+}
+
+model Assignment {
+  id             String    @id @default(uuid())
+  baseId         String
+  assetTypeId    String
+  personnelName  String
+  personnelRank  String
+  quantity       Int
+  isExpended     Boolean   @default(false)
+  expendedReason String?
+  assignedAt     DateTime  @default(now())
+  expendedAt     DateTime?
+  base           Base      @relation(fields: [baseId], references: [id])
+  assetType      AssetType @relation(fields: [assetTypeId], references: [id])
+}
+
+model AuditLog {
+  id           String   @id @default(uuid())
+  userId       String?
+  user         User?    @relation(fields: [userId], references: [id])
+  action       String
+  resourceType String
+  resourceId   String?
+  details      Json
+  ipAddress    String?
+  timestamp    DateTime @default(now())
+}
